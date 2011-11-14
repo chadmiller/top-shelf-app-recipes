@@ -1,0 +1,442 @@
+#!/usr/bin/python3
+
+import sys
+import re
+import os
+import json
+
+
+class MakesNoSense(Exception): pass
+
+
+all_ingredients = set()
+recipe_book = list()
+for drink_number, filename in enumerate(os.listdir("recipes-clean")):
+    with open(os.path.join("recipes-clean", filename)) as f:
+        try:
+            description = dict()
+            ingredients = set()
+            glasses = set()
+            prepare_instructions = list()
+            consume_instructions = list()
+
+
+            glassline = f.readline().strip()
+            glassline = glassline.replace("CordialOrBrandySnifter", "Cordial")
+            m = re.match(r"\[genericglass ([A-Z][a-zA-Z ]*)([^]]*)\] Serving Glass: (.*)", glassline)
+            if not m: raise ValueError(glassline)
+            glass_id, glass_id_ext, glass_name = m.groups()
+            if glass_id_ext:
+                if glass_name.replace(" ", "") != glass_id + glass_id_ext:
+                    print(m.groups(), repr(glassline))
+            glasses.add(glass_id.lower() + " glass")
+            prepare_instructions.append("get " + glass_id.lower() + " glass")
+            if glass_id_ext:
+                prepare_instructions.append(glass_id_ext + " " + glass_id)
+
+
+            state = None
+            is_first_line = True
+            for i, line in enumerate(f):
+                portion = None
+                ingredient = None
+                line = line.strip()
+                if not line: continue
+
+                if is_first_line:
+                    is_first_line = False
+                    continue
+
+                if line.startswith("{{"):
+                    continue
+
+                line = line.replace("Cr De Cacao", "Crème De Cacao")
+                line = line.replace("Cr De Menthe", "Crème De Menthe")
+
+                if line.startswith("Juice of "):
+                    line = line[9:] + " juiced"
+                if line.startswith(("Dash ", "Drop ")):
+                    line = "1 " + line
+
+                if line == "Shoot":
+                    consume_instructions.append("Shoot")
+                    continue
+                elif line == "Suck":
+                    continue
+                elif line == "Swish In Mouth":
+                    consume_instructions.append("Swish in mouth")
+                    continue
+                elif line == "Sugared Lemon Wedge":
+                    ingredients.add("lemon")
+                    ingredients.add("sugar")
+                    prepare_instructions.append("Slice and sugar lemon wedge")
+                    consume_instructions.append("Suck lemon wedge")
+                    continue
+
+                line = re.sub(r"\[genericingredient ([^]]+)] \1", r"\1", line)
+                line = re.sub(r"(?i)\[genericingredient ([^]]+)] Hiram Walker \1", r"\1", line)
+                line = re.sub(r"(?i)\[genericingredient ([^]]+)] Hiram Walker Blackberry Liqueur", r"\1", line)
+                line = re.sub(r"(?i)\[genericingredient ([^]]+)] Hiram Walker cr de banana", r"\1", line)
+                line = re.sub(r"(?i)\[genericingredient ([^]]+)] Ocean Spray \1", r"\1", line)
+                line = re.sub(r"(?i)\[genericingredient ([^]]+)] Don Pedro \1", r"\1", line)
+                line = re.sub(r"(?i)\[genericingredient ([^]]+)] Baileys \1", r"\1", line)
+                line = re.sub(r"(?i)\[genericingredient ([^]]+)] MUMM \1", r"\1", line)
+                line = re.sub(r"(?i)\[genericingredient ([^]]+)] Lairds Apple Jack", r"\1", line)
+                line = re.sub(r"(?i)creme de \[genericingredient cassis\] hiram walker cr de cassis", r"crème de cassis", line)
+
+                if line == "In Blender,No Ice add":
+                    state = "add {} to blender"
+                    state_popper = "Blend"
+                    continue
+                elif line == "In Mixing Glass With Ice Add:":
+                    prepare_instructions.append("add ice to a mixing glass")
+                    state = "add {} to mixing glass"
+                    state_popper = None
+                    continue
+                elif line == "Layer Ingredients":
+                    state = "layer {}"
+                    state_popper = None
+                    continue
+
+                if line.startswith(("3/4 Fill ", "2/3 Fill ", "1/3 Fill ", "1/2 Fill ", "Fill ", "Shake ", "Blend ", "Stir", "Splash ", "Garnish: ", "Top: ", "Float: ", "Gently Stir", "Mash", "Layer ", "In Mixing Glass With Ice Add:",)):
+                    if state is not None and state_popper is not None:
+                        prepare_instructions.append(state_popper)
+                    #state = 
+                    if line.endswith(":"):
+                        raise ValueError(line)
+                    
+                    if line.startswith(("3/4 Fill ", "2/3 Fill ", "1/3 Fill ", "1/2 Fill ")):
+                        prepare_instructions.append(line.lower())
+                        ingredients.add(line[9:].lower())
+                    elif line == "Garnish: Sprinkle Nutmeg":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("nutmeg")
+                    elif line == "Float: 1/4 oz Grand Marnier":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("grand marnier")
+                    elif line == "Garnish: Mint Sprig":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("mint")
+                    elif line == "Garnish: Lemon Twist":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("lemon")
+                    elif line == "Garnish: Pineapple":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("pineapple")
+                    elif line == "Garnish: Peanuts":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("peanuts")
+                    elif line == "Garnish: Cinnamon Stick":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("cinnamon stick")
+                    elif line == "Garnish: Slice Green Apple":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("apple (green)")
+                    elif line == "Garnish: Cinnamon":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("ground cinnamon")
+                    elif line == "Garnish: Black Olive":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("olives")
+                    elif line == "Garnish: Olive":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("olives")
+                    elif line == "Garnish: Chocolate Sprinkles":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("chocolate sprinkles")
+                    elif line == "Garnish: Peach Slice":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("peach slice")
+                    elif line == "Garnish: Pearl Onion":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("pearl onion")
+                    elif line == "Garnish: Marshmallows":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("marshmallows")
+                    elif line == "Garnish: Strawberry":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("strawberry")
+                    elif line == "Garnish: Cherry":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("cherry")
+                    elif line == "Garnish: Lemon Wheel":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("lemon")
+                    elif line == "Garnish: Lemon Peel":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("lemon")
+                    elif line == "Garnish: Lemon Wedge":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("lemon")
+                    elif line == "Garnish: Lemon Slice":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("lemon")
+                    elif line == "Garnish: Lime Twist":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("lime")
+                    elif line == "Garnish: Lime Squeeze":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("lime")
+                    elif line == "Garnish: Orange Twist":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("orange")
+                    elif line == "Garnish: Lime Wedge":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("lime")
+                    elif line == "Garnish: Lime Slice":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("lime")
+                    elif line == "Garnish: Celery":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("celery")
+                    elif line == "Garnish: Orange Slice":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("orange")
+                    elif line.startswith("Float") and "[" not in line:
+                        prepare_instructions.append(line.replace(":", " with").lower())
+
+                        m = re.match(r"(?i)([\d/ ]+)? ?(oz|tsp|scoops|scoop|dashes|dash|tbsp|drop) (.*)", line)
+                        if m:
+                            portion = m.group(1) + " " + m.group(2)
+                            ingredient = m.group(3)
+                            ingredients.add(m.group(3).lower())
+                            prepare_instructions.append("float " + portion + " " + ingredient.lower() + " on top")
+                        else:
+                            m = re.match(r"(\w+)", line)
+                            if m:
+                                ingredients.add(m.group(0).lower())
+                                prepare_instructions.append("float " + m.group(1).lower() + " on top")
+                            else:
+                                raise ValueError(repr(line))
+                    elif line.startswith("Top: ") and "[" not in line:
+                        prepare_instructions.append(line.replace(":", " with").lower())
+
+                        m = re.match(r"(?i)([\d/ ]+)? ?(oz|tsp|scoops|scoop|dashes|dash|tbsp|drop) (.*)", line)
+                        if m:
+                            portion = m.group(1) + " " + m.group(2)
+                            ingredient = m.group(3)
+                            ingredients.add(m.group(3).lower())
+                            prepare_instructions.append("top with " + portion + " " + ingredient.lower())
+                        else:
+                            m = re.match(r"(\w+)", line)
+                            if m and line != "top":
+                                ingredients.add(m.group(0).lower())
+                                prepare_instructions.append("top with " + m.group(1).lower())
+                            else:
+                                raise ValueError(repr(line))
+                    elif line == "Top: 1 oz [genericingredient Coffee Liqueur] Kahlua Coffee Liqueur":
+                        prepare_instructions.append("top with 1 oz coffee liqueur (like Kahlua)")
+                        ingredients.add("coffee liqueur")
+                    elif line == "Top: [genericingredient Sambuca] Hiram Walker Sambuca":
+                        prepare_instructions.append("top with sambuca")
+                        ingredients.add("sambuca")
+                    elif line == "Top: Splash Champagne":
+                        prepare_instructions.append("top with splash champagne")
+                        ingredients.add("champagne")
+                    elif line == "Top: Dash [genericingredient Dark Crème De Cacao] Hiram Walker Dark Crème De Cacao":
+                        prepare_instructions.append("top with dash of crème de cacao")
+                        ingredients.add("crème de cacao (dark)")
+                    elif line == "Top: 2 tsp Creme De [genericingredient Cassis] Hiram Walker Cr De Cassis":
+                        prepare_instructions.append("top with 2 tsp crème de cassis")
+                        ingredients.add("crème de cassis")
+                    elif line == "Top: 1/3 oz Creme De [genericingredient Cassis] Hiram Walker Cr De Cassis":
+                        prepare_instructions.append("top with 1/3 oz crème de cassis")
+                        ingredients.add("crème de cassis")
+                    elif line == "Top: 1/2 oz [genericingredient Melon Liqueur] Hiram Walker Melon Liqueur":
+                        prepare_instructions.append("top with mellon liqueur")
+                        ingredients.add("mellon liqueur")
+                    elif line == "Top: 1 1/2 oz [genericingredient Amaretto] Hiram Walker Amaretto":
+                        prepare_instructions.append("top with amaretto")
+                        ingredients.add("amaretto")
+                    elif line == "Top: [genericingredient Champagne] MUMM Champagne":
+                        prepare_instructions.append("top with champagne")
+                        ingredients.add("champagne")
+                    elif line == "Top: [genericingredient cranberry juice] Ocean Spray Cranberry Juice":
+                        prepare_instructions.append("top with cranberry juice")
+                        ingredients.add("cranberry juice")
+                    elif line == "Top: 1 oz Jack Daniels":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("whiskey")
+                    elif line == "Top: [genericingredient Amaretto] Hiram Walker Amaretto":
+                        prepare_instructions.append("top with amaretto")
+                        ingredients.add("amaretto")
+                    elif line == "Top: 1/2 oz [genericingredient Sloe Gin] Hiram Walker Sloe Gin":
+                        prepare_instructions.append("top with 1/2 oz sloe gin")
+                        ingredients.add("sloe gin")
+                    elif line == "Top: 1/2 oz Chambord Raspberry Schnapps":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        ingredients.add("raspberry schnapps")
+                    elif line == "Fill Grapefruit Juice":
+                        prepare_instructions.append("fill with grapefruit juice")
+                        ingredients.add("grapefruit juice")
+                    elif line == "Fill Champagne":
+                        prepare_instructions.append("fill with champagne")
+                        ingredients.add("champagne")
+                    elif line == "Fill Coffee":
+                        prepare_instructions.append("fill with coffee")
+                        ingredients.add("coffee")
+                    elif line == "Fill Bloody Mary Mix":
+                        prepare_instructions.append("fill with bloody-mary mix")
+                        ingredients.add("bloody-mary mix")
+                    elif line == "Fill Hot Chocolate":
+                        prepare_instructions.append("fill with hot chocolate")
+                        ingredients.add("hot chocolate")
+                    elif line == "Fill Pineapple Juice":
+                        prepare_instructions.append("fill with pineapple juice")
+                        ingredients.add("pineapple juice")
+                    elif line == "Fill Cola":
+                        prepare_instructions.append("fill with cola")
+                        ingredients.add("cola")
+                    elif line == "Fill Sweet/Sour Mix":
+                        prepare_instructions.append("fill with sweet/sour mix")
+                        ingredients.add("sweet/sour mix")
+                    elif line == "Fill Tonic":
+                        prepare_instructions.append("fill with tonic")
+                        ingredients.add("tonic")
+                    elif line == "Fill Lemonade":
+                        prepare_instructions.append("fill with lemonade")
+                        ingredients.add("lemonade")
+                    elif line == "Fill [genericingredient Champagne] MUMM Champagne":
+                        prepare_instructions.append("fill with champagne (like MUMM Champagne)")
+                        ingredients.add("champagne")
+                    elif line == "Fill Apple Juice":
+                        prepare_instructions.append("fill with apple juice")
+                        ingredients.add("apple juice")
+                    elif line == "Fill White Wine":
+                        prepare_instructions.append("fill with white wine")
+                        ingredients.add("white wine")
+                    elif line == "Fill Water":
+                        prepare_instructions.append("fill with water")
+                        ingredients.add("water")
+                    elif line == "Fill Root Beer":
+                        prepare_instructions.append("fill with root beer")
+                        ingredients.add("root beer")
+                    elif line == "Fill Lime Soda":
+                        prepare_instructions.append("fill with lime soda")
+                        ingredients.add("lime soda")
+                    elif line == "Fill Lemon Lime Soda":
+                        prepare_instructions.append("fill with lemon lime soda (like Sprite)")
+                        ingredients.add("lemon-lime soda")
+                    elif line == "Fill Milk":
+                        prepare_instructions.append("fill with milk")
+                        ingredients.add("milk")
+                    elif line == "Fill Orange Juice":
+                        prepare_instructions.append("fill with orange juice")
+                        ingredients.add("orange juice")
+                    elif line == "Fill cranberry juice":
+                        prepare_instructions.append("fill with cranberry juice")
+                        ingredients.add("cranberry juice")
+                    elif line == "Fill Beer":
+                        prepare_instructions.append("fill with beer")
+                        ingredients.add("beer")
+                    elif line == "Fill Cream":
+                        prepare_instructions.append("fill with cream")
+                        ingredients.add("cream")
+                    elif line == "Fill Ginger Ale":
+                        prepare_instructions.append("fill with ginger ale")
+                        ingredients.add("ginger ale")
+                    elif line == "Fill Club Soda":
+                        prepare_instructions.append("fill with club soda")
+                        ingredients.add("club soda")
+                    elif line == "Fill Hot Water":
+                        prepare_instructions.append("fill with hot water")
+                    elif line == "Fill Cold Coffee":
+                        prepare_instructions.append("fill with cold coffee")
+                        ingredients.add("coffee")
+                    elif line == "Fill with Ice":
+                        prepare_instructions.append("fill with ice")
+                    elif line == "Shake and Strain":
+                        prepare_instructions.append(line.lower())
+                    elif line == "Mash with Spoon":
+                        prepare_instructions.append(line.lower())
+                    elif line == "Gently Stir":
+                        prepare_instructions.append(line.lower())
+                    elif line == "Stir":
+                        prepare_instructions.append(line.lower())
+                    elif line == "Blend and Strain":
+                        prepare_instructions.append(line.lower())
+                    elif line == "Blend and Pour":
+                        prepare_instructions.append(line.lower())
+                    elif line == "Shake and Pour":
+                        prepare_instructions.append(line.lower())
+                    elif line == "Shake and Pour":
+                        prepare_instructions.append(line.lower())
+                    elif line == "Gently Stir and Strain":
+                        prepare_instructions.append(line.lower())
+                    elif line == "Stir and Strain":
+                        prepare_instructions.append(line.lower())
+                    elif line == "Splash Water":
+                        prepare_instructions.append(line.lower())
+                    elif line.startswith("Splash "):
+                        prepare_instructions.append(line.lower())
+                        ingredients.add(line[7:].lower())
+                    else:
+                        raise ValueError(drink_number, line)
+                    continue
+
+
+                if line == "1/4 Fill Ice":
+                    prepare_instructions.append("fill 1/4 ice")
+                    continue
+
+                if line == "Cola":
+                    prepare_instructions.append("add cola")
+                    ingredients.add("cola")
+                    continue
+
+                m = re.match(r"(?i)([\d/ ]+) (Lemon|Lime|Egg|Egg White)", line)
+                if m:
+                    portion = m.group(1)
+                    ingredient = m.group(2)
+                    long_ingredient = None
+                else:
+                    m = re.match(r"(?i)([\d/ ]+) (oz|tsp|scoops|scoop|dashes|dash|tbsp|drop) (.*)", line)
+                    if m:
+                        portion = m.group(1) + " " + m.group(2)
+                        ingredient = m.group(3)
+                        long_ingredient = None
+
+                        m = re.match(r"\[genericingredient ([^]]*)\] (.*)", ingredient)
+                        if m:
+                            if m.group(1).lower() == m.group(2).lower():
+                                ingredient = m.group(1)
+                            else:
+                                ingredient = m.group(1)
+                                long_ingredient = m.group(2)
+                    else:
+                        raise MakesNoSense(line)
+
+                if ingredient is not None:
+                    ingredients.add(ingredient.lower())
+
+                if ingredient:
+                    if state is not None:
+                        if long_ingredient:
+                            prepare_instructions.append(state.format(ingredient.lower() + " (like " + long_ingredient + ")"))
+                        else:
+                            prepare_instructions.append("add " + portion + " of " + ingredient.lower())
+                    else:
+                        if long_ingredient:
+                            prepare_instructions.append("add " + portion + " of " + ingredient.lower() + " (like " + long_ingredient + ")")
+                        else:
+                            prepare_instructions.append("add " + portion + " of " + ingredient.lower())
+                else:
+                    raise MakesNoSense(line)
+
+            all_ingredients |= ingredients
+
+        except MakesNoSense:
+            continue
+
+
+        description["name"] = filename
+        description["prepare_instructions"] = prepare_instructions
+        description["consume_instructions"] = consume_instructions
+        description["ingredients"] = list(ingredients)
+        description["glasses"] = list(glasses)
+        recipe_book.append(description)
+        #print(description)
+    #print("----")
+
+
+print(json.dumps(recipe_book))
