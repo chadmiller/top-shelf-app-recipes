@@ -12,6 +12,7 @@ class MakesNoSense(Exception): pass
 all_ingredients = set()
 recipe_book = list()
 for drink_number, filename in enumerate(os.listdir("recipes-clean")):
+    if filename.startswith("."): continue
     with open(os.path.join("recipes-clean", filename)) as f:
         try:
             description = dict()
@@ -29,11 +30,16 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
             if glass_id_ext:
                 if glass_name.replace(" ", "") != glass_id + glass_id_ext:
                     print(m.groups(), repr(glassline))
-            glasses.add(glass_id.lower() + " glass")
+            glass_id = glass_id.lower().replace("noice", "")
+            if "salted" in glass_id:
+                glass_id = "salted " + glass_id.replace("salted", "")
+            if glass_id.endswith(("mug",)):
+                glasses.add(glass_id)
+            else:
+                glasses.add(glass_id + " glass")
             prepare_instructions.append("get " + glass_id.lower() + " glass")
             if glass_id_ext:
                 prepare_instructions.append(glass_id_ext + " " + glass_id)
-
 
             state = None
             is_first_line = True
@@ -43,9 +49,10 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                 line = line.strip()
                 if not line: continue
 
-                if is_first_line:
-                    is_first_line = False
-                    continue
+                #if is_first_line:
+                #    is_first_line = False
+                #    if line.startswith("In "):
+                #        continue
 
                 if line.startswith("{{"):
                     continue
@@ -74,22 +81,52 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                     continue
 
                 line = re.sub(r"\[genericingredient ([^]]+)] \1", r"\1", line)
-                line = re.sub(r"(?i)\[genericingredient ([^]]+)] Hiram Walker \1", r"\1", line)
-                line = re.sub(r"(?i)\[genericingredient ([^]]+)] Hiram Walker Blackberry Liqueur", r"\1", line)
-                line = re.sub(r"(?i)\[genericingredient ([^]]+)] Hiram Walker cr de banana", r"\1", line)
-                line = re.sub(r"(?i)\[genericingredient ([^]]+)] Ocean Spray \1", r"\1", line)
-                line = re.sub(r"(?i)\[genericingredient ([^]]+)] Don Pedro \1", r"\1", line)
-                line = re.sub(r"(?i)\[genericingredient ([^]]+)] Baileys \1", r"\1", line)
-                line = re.sub(r"(?i)\[genericingredient ([^]]+)] MUMM \1", r"\1", line)
                 line = re.sub(r"(?i)\[genericingredient ([^]]+)] Lairds Apple Jack", r"\1", line)
                 line = re.sub(r"(?i)creme de \[genericingredient cassis\] hiram walker cr de cassis", r"crème de cassis", line)
+                line = re.sub(r"(?i)\[genericingredient Strawberry Schnapps\] Hiram Walker Creme De Strawberry", r"strawberry schnapps", line)
+                line = re.sub(r"(?i)\[genericingredient ([^]]+)] Hiram Walker Blackberry Liqueur", r"\1", line)
+                line = re.sub(r"(?i)\[genericingredient ([^]]+)] Hiram Walker cr de banana", r"\1", line)
+                brands = ("Glenlivet", "Goldschlager", "Harveys", "Jack Daniels", "Jameson", "Jim Beam", "Jose Cuervo", "Kahlua", "Malibu", "Martell", "Sauza Anejo", "Hiram Walker", "Ocean Spray", "Beefeater", "Absolut", "Don Pedro", "Baileys", "MUMM")
+                line = re.sub(r"(?i)\[genericingredient ([^]]+)] (?:" + "|".join(re.escape(b) for b in brands) + r") \1", r"\1", line)
 
-                if line == "In Blender,No Ice add":
+                line = re.sub(r"(?i)\b(c)reme de ", r"\1rème de ", line)
+                line = re.sub(r"(?i)\bjack daniels\b", "whiskey", line)
+                line = re.sub(r"(?i)\bsouthern comfort\b", "whiskey", line)
+                line = re.sub(r"(?i)\b(rum) (dark) jamacian\b", r"\1 (\2)", line)
+                line = re.sub(r"(?i)\b(rum) jamacian\b", r"\1", line)
+                line = re.sub(r"(?i)\b(tequilla) premium\b", r"\1 (\2)", line)
+                line = re.sub(r"(?i)\b(rum) (light)\b", r"\1", line)
+                line = re.sub(r"(?i)\b(rum) (premium)\b", r"\1", line)
+                line = re.sub(r"(?i)\b(rum) (dark)\b", r"\1 (\2)", line)
+                line = re.sub(r"(?i)\b(stout) (beer)\b", r"\2 (\1)", line)
+                line = re.sub(r"(?i)\b(white|dark|green) (crème de \w+)\b", r"\2 (\1)", line)
+
+                #line = re.sub(r"(?i)\[genericingredient ([^]]+)] Ocean Spray \1", r"\1", line)
+                #line = re.sub(r"(?i)\[genericingredient ([^]]+)] Beefeater \1", r"\1", line)
+                line = re.sub(r"(?i)\[genericingredient ([^]]+)] Absolut \1", r"\1", line)
+                #line = re.sub(r"(?i)\[genericingredient ([^]]+)] Don Pedro \1", r"\1", line)
+                #line = re.sub(r"(?i)\[genericingredient ([^]]+)] Baileys \1", r"\1", line)
+                #line = re.sub(r"(?i)\[genericingredient ([^]]+)] MUMM \1", r"\1", line)
+
+                if line == "In Blender,No Ice add" or line == "In Blender-No Ice add":
                     state = "add {} to blender"
                     state_popper = "Blend"
                     continue
+                elif line == "In Blender With Ice add":
+                    state = "add {} to blender"
+                    prepare_instructions.append(state.format("ice"))
+                    state_popper = "Blend"
+                    continue
                 elif line == "In Mixing Glass With Ice Add:":
-                    prepare_instructions.append("add ice to a mixing glass")
+                    state = "add {} to mixing glass"
+                    prepare_instructions.append(state.format("ice"))
+                    state_popper = None
+                    continue
+                elif line == "In Mixing Glass,No Ice add":
+                    state = "add {} to mixing glass"
+                    state_popper = None
+                    continue
+                elif line == "In Mixing Glass,No Ice Add:":
                     state = "add {} to mixing glass"
                     state_popper = None
                     continue
@@ -97,6 +134,7 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                     state = "layer {}"
                     state_popper = None
                     continue
+
 
                 if line.startswith(("3/4 Fill ", "2/3 Fill ", "1/3 Fill ", "1/2 Fill ", "Fill ", "Shake ", "Blend ", "Stir", "Splash ", "Garnish: ", "Top: ", "Float: ", "Gently Stir", "Mash", "Layer ", "In Mixing Glass With Ice Add:",)):
                     if state is not None and state_popper is not None:
@@ -277,7 +315,7 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                         ingredients.add("coffee")
                     elif line == "Fill Bloody Mary Mix":
                         prepare_instructions.append("fill with bloody-mary mix")
-                        ingredients.add("bloody-mary mix")
+                        ingredients.add("bloody mary mix")
                     elif line == "Fill Hot Chocolate":
                         prepare_instructions.append("fill with hot chocolate")
                         ingredients.add("hot chocolate")
@@ -316,7 +354,7 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                         ingredients.add("lime soda")
                     elif line == "Fill Lemon Lime Soda":
                         prepare_instructions.append("fill with lemon lime soda (like Sprite)")
-                        ingredients.add("lemon-lime soda")
+                        ingredients.add("lemon lime soda")
                     elif line == "Fill Milk":
                         prepare_instructions.append("fill with milk")
                         ingredients.add("milk")
@@ -346,24 +384,34 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                     elif line == "Fill with Ice":
                         prepare_instructions.append("fill with ice")
                     elif line == "Shake and Strain":
+                        if state_popper is not None: prepare_instructions.append(state_popper); state_popper = None
                         prepare_instructions.append(line.lower())
                     elif line == "Mash with Spoon":
+                        if state_popper is not None: prepare_instructions.append(state_popper); state_popper = None
                         prepare_instructions.append(line.lower())
                     elif line == "Gently Stir":
+                        if state_popper is not None: prepare_instructions.append(state_popper); state_popper = None
                         prepare_instructions.append(line.lower())
                     elif line == "Stir":
+                        if state_popper is not None: prepare_instructions.append(state_popper); state_popper = None
                         prepare_instructions.append(line.lower())
                     elif line == "Blend and Strain":
+                        if state_popper is not None: prepare_instructions.append(state_popper); state_popper = None
                         prepare_instructions.append(line.lower())
                     elif line == "Blend and Pour":
+                        if state_popper is not None: prepare_instructions.append(state_popper); state_popper = None
                         prepare_instructions.append(line.lower())
                     elif line == "Shake and Pour":
+                        if state_popper is not None: prepare_instructions.append(state_popper); state_popper = None
                         prepare_instructions.append(line.lower())
                     elif line == "Shake and Pour":
+                        if state_popper is not None: prepare_instructions.append(state_popper); state_popper = None
                         prepare_instructions.append(line.lower())
                     elif line == "Gently Stir and Strain":
+                        if state_popper is not None: prepare_instructions.append(state_popper); state_popper = None
                         prepare_instructions.append(line.lower())
                     elif line == "Stir and Strain":
+                        if state_popper is not None: prepare_instructions.append(state_popper); state_popper = None
                         prepare_instructions.append(line.lower())
                     elif line == "Splash Water":
                         prepare_instructions.append(line.lower())
@@ -374,6 +422,15 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                         raise ValueError(drink_number, line)
                     continue
 
+                if line == "3 Mint Leaves":
+                    prepare_instructions.append("add 3 mint leaves")
+                    ingredients.add("mint")
+                    continue
+                    
+                if line == "Sugar Rim":
+                    prepare_instructions.append("sugar rim")
+                    ingredients.add("sugar")
+                    continue
 
                 if line == "1/4 Fill Ice":
                     prepare_instructions.append("fill 1/4 ice")
@@ -425,18 +482,24 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
 
             all_ingredients |= ingredients
 
-        except MakesNoSense:
+        except MakesNoSense as ex:
+            print(repr(filename), ex)
             continue
 
 
         description["name"] = filename
         description["prepare_instructions"] = prepare_instructions
-        description["consume_instructions"] = consume_instructions
-        description["ingredients"] = list(ingredients)
+        if consume_instructions:
+            description["consume_instructions"] = consume_instructions
+        description["ingredients"] = list(ingredients - set(["ice", "water", "hot water", "float", "top"]))
         description["glasses"] = list(glasses)
         recipe_book.append(description)
         #print(description)
     #print("----")
 
 
-print(json.dumps(recipe_book))
+print([d for d in recipe_book if d["name"] == "57 Chevy"])
+
+with open("drinks.json", "w") as f:
+    json.dump(recipe_book, fp=f, indent=1)
+
