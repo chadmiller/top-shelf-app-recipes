@@ -4,11 +4,45 @@ import sys
 import re
 import os
 import json
+import unicodedata
+from datetime import datetime
+
+def fraction_pretify(instruction):
+    if "/" not in instruction:
+        return instruction
+    m = re.search(r"\b(\d+/\d+)\b", instruction)
+    if not m:
+        return instruction
+    fv_map = {
+        "1/2": "VULGAR FRACTION ONE HALF",
+        "1/3": "VULGAR FRACTION ONE THIRD",
+        "2/3": "VULGAR FRACTION TWO THIRDS",
+        "1/4": "VULGAR FRACTION ONE QUARTER",
+        "3/4": "VULGAR FRACTION THREE QUARTERS",
+        "1/5": "VULGAR FRACTION ONE FIFTH",
+        "2/5": "VULGAR FRACTION TWO FIFTHS",
+        "3/5": "VULGAR FRACTION THREE FIFTHS",
+        "4/5": "VULGAR FRACTION FOUR FIFTHS",
+        "1/6": "VULGAR FRACTION ONE SIXTH",
+        "5/6": "VULGAR FRACTION FIVE SIXTHS",
+        "1/8": "VULGAR FRACTION ONE EIGHTH",
+        "3/8": "VULGAR FRACTION THREE EIGHTHS",
+        "5/8": "VULGAR FRACTION FIVE EIGHTHS",
+        "7/8": "VULGAR FRACTION SEVEN EIGHTHS",
+        "1/16": "VULGAR FRACTION ONE SIXTEENTH",
+    }
+    name = fv_map[m.group(1)]
+    try:
+        new_instruction = instruction.replace(m.group(1), unicodedata.lookup(name))
+    except KeyError:
+        print("Can't find", name)
+        return instruction
+    return new_instruction
 
 
 class MakesNoSense(Exception): pass
 
-
+ingredient_frequency = dict()
 all_ingredients = set()
 recipe_book = list()
 for drink_number, filename in enumerate(os.listdir("recipes-clean")):
@@ -61,9 +95,9 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                 line = line.replace("Cr De Menthe", "Crème De Menthe")
 
                 if line.startswith("Juice of "):
-                    line = line[9:] + " juiced"
+                    line = line[9:].lower() + " juiced"
                 if line.startswith(("Dash ", "Drop ")):
-                    line = "1 " + line
+                    line = "1 " + line.lower()
 
                 if line == "Shoot":
                     consume_instructions.append("Shoot")
@@ -97,25 +131,21 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                 line = re.sub(r"(?i)\b(tequilla) premium\b", r"\1 (\2)", line)
                 line = re.sub(r"(?i)\b(rum) (light)\b", r"\1", line)
                 line = re.sub(r"(?i)\b(rum) (premium)\b", r"\1", line)
+                line = re.sub(r"(?i)\b(spiced) (rum)\b", r"\2 (\1)", line)
                 line = re.sub(r"(?i)\b(rum) (dark)\b", r"\1 (\2)", line)
                 line = re.sub(r"(?i)\b(stout) (beer)\b", r"\2 (\1)", line)
                 line = re.sub(r"(?i)\b(white|dark|green) (crème de \w+)\b", r"\2 (\1)", line)
 
-                #line = re.sub(r"(?i)\[genericingredient ([^]]+)] Ocean Spray \1", r"\1", line)
-                #line = re.sub(r"(?i)\[genericingredient ([^]]+)] Beefeater \1", r"\1", line)
                 line = re.sub(r"(?i)\[genericingredient ([^]]+)] Absolut \1", r"\1", line)
-                #line = re.sub(r"(?i)\[genericingredient ([^]]+)] Don Pedro \1", r"\1", line)
-                #line = re.sub(r"(?i)\[genericingredient ([^]]+)] Baileys \1", r"\1", line)
-                #line = re.sub(r"(?i)\[genericingredient ([^]]+)] MUMM \1", r"\1", line)
 
                 if line == "In Blender,No Ice add" or line == "In Blender-No Ice add":
                     state = "add {} to blender"
-                    state_popper = "Blend"
+                    state_popper = "blend"
                     continue
                 elif line == "In Blender With Ice add":
                     state = "add {} to blender"
                     prepare_instructions.append(state.format("ice"))
-                    state_popper = "Blend"
+                    #state_popper = "blend"     # "Orangatang"
                     continue
                 elif line == "In Mixing Glass With Ice Add:":
                     state = "add {} to mixing glass"
@@ -231,35 +261,35 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                         prepare_instructions.append(line.replace(":", " with").lower())
                         ingredients.add("orange")
                     elif line.startswith("Float") and "[" not in line:
-                        prepare_instructions.append(line.replace(":", " with").lower())
+                        prepare_instructions.append(line.replace(":", " ").lower().replace("  ", " "))
 
-                        m = re.match(r"(?i)([\d/ ]+)? ?(oz|tsp|scoops|scoop|dashes|dash|tbsp|drop) (.*)", line)
+                        m = re.search(r"(?i)([\d/ ]+)? ?(oz|tsp|scoops|scoop|dashes|dash|tbsp|drop) (.*)", line)
                         if m:
                             portion = m.group(1) + " " + m.group(2)
                             ingredient = m.group(3)
                             ingredients.add(m.group(3).lower())
-                            prepare_instructions.append("float " + portion + " " + ingredient.lower() + " on top")
+                            #prepare_instructions.append("float " + portion + " " + ingredient.lower() + " on top")
                         else:
                             m = re.match(r"(\w+)", line)
                             if m:
                                 ingredients.add(m.group(0).lower())
-                                prepare_instructions.append("float " + m.group(1).lower() + " on top")
+                                #prepare_instructions.append("float " + m.group(1).lower())
                             else:
                                 raise ValueError(repr(line))
                     elif line.startswith("Top: ") and "[" not in line:
-                        prepare_instructions.append(line.replace(":", " with").lower())
+                        prepare_instructions.append(line.replace(":", " ").lower().replace("  ", " "))
 
-                        m = re.match(r"(?i)([\d/ ]+)? ?(oz|tsp|scoops|scoop|dashes|dash|tbsp|drop) (.*)", line)
+                        m = re.match(r"(?i)top:? *([\d/ ]+) ?(oz|tsp|scoops|splash|scoop|dashes|dash|tbsp|drop) (.*)", line)
                         if m:
                             portion = m.group(1) + " " + m.group(2)
                             ingredient = m.group(3)
                             ingredients.add(m.group(3).lower())
-                            prepare_instructions.append("top with " + portion + " " + ingredient.lower())
+                            #prepare_instructions.append("top with " + portion + " " + ingredient.lower())
                         else:
-                            m = re.match(r"(\w+)", line)
-                            if m and line != "top":
-                                ingredients.add(m.group(0).lower())
-                                prepare_instructions.append("top with " + m.group(1).lower())
+                            m = re.match(r"[Tt]op:? ([^0-9].*)", line)
+                            if m and m.group(1).lower() != "top":
+                                ingredients.add(m.group(1).lower())
+                                #prepare_instructions.append("top with " + m.group(1).lower())
                             else:
                                 raise ValueError(repr(line))
                     elif line == "Top: 1 oz [genericingredient Coffee Liqueur] Kahlua Coffee Liqueur":
@@ -422,6 +452,15 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                         raise ValueError(drink_number, line)
                     continue
 
+                if line == "Salted Rim Optional":
+                    prepare_instructions.append("optionally, salt rim")
+                    continue
+
+                if line == "3 Sour Cherries":
+                    prepare_instructions.append("add 3 sour cherries")
+                    ingredients.add("sour cherries")
+                    continue
+
                 if line == "3 Mint Leaves":
                     prepare_instructions.append("add 3 mint leaves")
                     ingredients.add("mint")
@@ -434,6 +473,11 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
 
                 if line == "1/4 Fill Ice":
                     prepare_instructions.append("fill 1/4 ice")
+                    continue
+
+                if line == "Ice":
+                    prepare_instructions.append("add ice")
+                    ingredients.add("ice")
                     continue
 
                 if line == "Cola":
@@ -464,7 +508,12 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                         raise MakesNoSense(line)
 
                 if ingredient is not None:
-                    ingredients.add(ingredient.lower())
+                    if ingredient.lower() == "lemon juice":
+                        ingredients.add("lemon")
+                    elif ingredient.lower() == "lime juice":
+                        ingredients.add("lime")
+                    else:
+                        ingredients.add(ingredient.lower())
 
                 if ingredient:
                     if state is not None:
@@ -480,6 +529,11 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                 else:
                     raise MakesNoSense(line)
 
+            for ingredient in ingredients:
+                n = ingredient_frequency.get(ingredient, 0)
+                n += 1
+                ingredient_frequency[ingredient] = n
+                    
             all_ingredients |= ingredients
 
         except MakesNoSense as ex:
@@ -488,18 +542,17 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
 
 
         description["name"] = filename
-        description["prepare_instructions"] = prepare_instructions
+        description["prepare_instructions"] = [fraction_pretify(pi) for pi in prepare_instructions]
         if consume_instructions:
             description["consume_instructions"] = consume_instructions
         description["ingredients"] = list(ingredients - set(["ice", "water", "hot water", "float", "top"]))
         description["glasses"] = list(glasses)
         recipe_book.append(description)
-        #print(description)
-    #print("----")
 
 
-print([d for d in recipe_book if d["name"] == "57 Chevy"])
+sorted_ingredients = list(k for v, k in reversed(sorted((v, k) for k, v in ingredient_frequency.items())))
 
 with open("drinks.json", "w") as f:
-    json.dump(recipe_book, fp=f, indent=1)
+    struct = dict(schema=2, version=datetime.utcnow().strftime("%s"), book=recipe_book, most_used_ingredients=sorted_ingredients[:17])
+    json.dump(struct, fp=f, indent=1)
 
