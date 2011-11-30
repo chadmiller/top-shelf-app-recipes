@@ -35,7 +35,7 @@ def fraction_pretify(instruction):
     try:
         new_instruction = instruction.replace(m.group(1), unicodedata.lookup(name))
     except KeyError:
-        print("Can't find", name)
+        #print("Can't find", name)
         return instruction
     return new_instruction
 
@@ -270,9 +270,9 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                             ingredients.add(m.group(3).lower())
                             #prepare_instructions.append("float " + portion + " " + ingredient.lower() + " on top")
                         else:
-                            m = re.match(r"(\w+)", line)
+                            m = re.match(r"Float:? (\w+)", line)
                             if m:
-                                ingredients.add(m.group(0).lower())
+                                ingredients.add(m.group(1).lower())
                                 #prepare_instructions.append("float " + m.group(1).lower())
                             else:
                                 raise ValueError(repr(line))
@@ -551,6 +551,15 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
 
 
 sorted_ingredients = list(k for v, k in reversed(sorted((v, k) for k, v in ingredient_frequency.items())))
+
+white_russian = [d for d in recipe_book if d["name"] == "White Russian"][0]
+assert "cream" in white_russian["ingredients"]
+assert "coffee liqueur" in white_russian["ingredients"]
+assert "vodka" in white_russian["ingredients"]
+
+for d in recipe_book:
+    assert "top" not in d["ingredients"], d
+    assert "float" not in d["ingredients"], d
 
 with open("drinks.json", "w") as f:
     struct = dict(schema=2, version=datetime.utcnow().strftime("%s"), book=recipe_book, most_used_ingredients=sorted_ingredients[:17])
