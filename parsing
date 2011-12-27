@@ -7,13 +7,18 @@ import json
 import unicodedata
 from datetime import datetime
 import gzip
-
+import random
 
 nicemap = {
+    "jagermeister": "jägermeister",
     "sweet vermouth": "vermouth (sweet)",
     "dry vermouth": "vermouth (dry)",
     "blue curacao": "curaçao (blue)",
     "curacao": "curaçao",
+    "cold coffee": "coffee (cold)",
+    "vanilla ice cream": "ice cream (vanilla)",
+    "ground cinnamon": "cinnamon (ground)",
+    "cinnamon stick": "cinnamon (stick)",
     "gold tequila": "tequila (gold)",
     "sloe gin": "gin (sloe)",
     "goldschlager": "goldschläger",
@@ -112,9 +117,14 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                 glasses.add(glass_id)
             else:
                 glasses.add(glass_id + " glass")
-            prepare_instructions.append("get " + glass_id.lower() + " glass")
             if glass_id_ext:
-                prepare_instructions.append(glass_id_ext + " " + glass_id)
+                if glass_id_ext == "1/2FillIce":
+                    prepare_instructions.append("serve in " + glass_id + " glass")
+                    prepare_instructions.append("fill halfway with ice")
+                else:
+                    prepare_instructions.append(glass_id_ext + " " + glass_id)
+            else:
+                prepare_instructions.append("serve in " + ", ".join(glasses))
 
             state = None
             is_first_line = True
@@ -159,6 +169,7 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                 line = re.sub(r"(?i)\[genericingredient ([^]]+)] Lairds Apple Jack", r"\1", line)
                 line = re.sub(r"(?i)creme de \[genericingredient cassis\] hiram walker cr de cassis", r"crème de cassis", line)
                 line = re.sub(r"(?i)\[genericingredient Strawberry Schnapps\] Hiram Walker Creme De Strawberry", r"strawberry schnapps", line)
+                line = re.sub(r"(?i)\[genericingredient Gold Tequila\] Sauza Anejo Tequila", r"tequila (gold)", line)
                 line = re.sub(r"(?i)\[genericingredient ([^]]+)] Hiram Walker Blackberry Liqueur", r"\1", line)
                 line = re.sub(r"(?i)\[genericingredient ([^]]+)] Hiram Walker cr de banana", r"\1", line)
                 brands = ("Glenlivet", "Goldschlager", "Harveys", "Jack Daniels", "Jameson", "Jim Beam", "Jose Cuervo", "Kahlua", "Malibu", "Martell", "Sauza Anejo", "Hiram Walker", "Ocean Spray", "Beefeater", "Absolut", "Don Pedro", "Baileys", "MUMM")
@@ -238,13 +249,13 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                         add_ingredient("peanuts")
                     elif line == "Garnish: Cinnamon Stick":
                         prepare_instructions.append(line.replace(":", " with").lower())
-                        add_ingredient("cinnamon stick")
+                        add_ingredient("cinnamon (stick)")
                     elif line == "Garnish: Slice Green Apple":
                         prepare_instructions.append(line.replace(":", " with").lower())
                         add_ingredient("apple (green)")
                     elif line == "Garnish: Cinnamon":
                         prepare_instructions.append(line.replace(":", " with").lower())
-                        add_ingredient("ground cinnamon")
+                        add_ingredient("cinnamon (ground)")
                     elif line == "Garnish: Black Olive":
                         prepare_instructions.append(line.replace(":", " with").lower())
                         add_ingredient("olives")
@@ -606,8 +617,18 @@ for d in recipe_book:
 
 with open("drinks.json.gz.fakeheader", "wb") as f:
     struct = [3, datetime.utcnow().strftime("%s"), canonical_ingredients, recipe_book, sorted_ingredients[:17]]
-    f.write(b"JEEJAH\0\0\0\0CM\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0")
-    j = json.dumps(struct, indent=1)
-    z = gzip.compress(j.encode("latin1"), 9)
+
+    f.write(b"\x78\x9c\xec\xbdY\xcf\xf8\0\0\0CM\0\1\5\7cinnamon+(ground)rum+(dark)sambu\x10")
+    f.write(b"$!@wef3\xf4(8wF34hALwef3\xf4\xca\x9a")
+    f.write(b"$!@(8wF34hALwwef3\xf4ef3\xf4\xaa\x3a")
+    f.write(b"garnisheshalwef3\xf4\xaawef3\xf4\x77")
+    f.write(b"#creamlemonlwef3\xf4\xca\x9a")
+    f.write(b"#!@ginger+aleef3\xf2\xcaef3\xf4\x21")
+    f.write(b"cognaclimecolaf3\xf4\xcaef3\xf4\x22")
+    f.write(b"#celeryabsintye3\xf4\xcaef3\xf4\x23")
+    f.write(b"#!@amarettotonic\xf2\xcaef3\xf4\x24")
+    f.write(b" #!@(8tequilawef3\xf2\xcaef3\xf4\x25")
+    z = json.dumps(struct, indent=1)
+    z = gzip.compress(z.encode("latin1"), 9)
     f.write(z)
 
