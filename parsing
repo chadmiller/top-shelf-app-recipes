@@ -191,25 +191,25 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                 line = re.sub(r"(?i)\[genericingredient ([^]]+)] Absolut \1", r"\1", line)
 
                 if line == "In Blender,No Ice add" or line == "In Blender-No Ice add":
-                    state = "add {} to blender"
+                    state = "add {} to a blender"
                     state_popper = "blend"
                     continue
                 elif line == "In Blender With Ice add":
-                    state = "add {} to blender"
+                    state = "add {} to a blender"
                     prepare_instructions.append(state.format("ice"))
                     #state_popper = "blend"     # "Orangatang"
                     continue
                 elif line == "In Mixing Glass With Ice Add:":
-                    state = "add {} to mixing glass"
+                    state = "add {} to a mixing glass"
                     prepare_instructions.append(state.format("ice"))
                     state_popper = None
                     continue
                 elif line == "In Mixing Glass,No Ice add":
-                    state = "add {} to mixing glass"
+                    state = "add {} to a mixing glass"
                     state_popper = None
                     continue
                 elif line == "In Mixing Glass,No Ice Add:":
-                    state = "add {} to mixing glass"
+                    state = "add {} to a mixing glass"
                     state_popper = None
                     continue
                 elif line == "Layer Ingredients":
