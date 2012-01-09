@@ -53,7 +53,7 @@ m grenadine
   irish whiskey
   jägermeister
   kirsch
-m maraschino cherry juice
+m cherry (maraschino) juice
   maraschino liqueur
   melon liqueur
   metaxa
@@ -95,9 +95,10 @@ m maraschino cherry juice
   wild turkey 101
   wine (red)
   wine (white)
-g apple (green)
+g apple
 g celery
-g cherry
+g cherries (maraschino)
+g cherries (sour)
 g chocolate sprinkles
 g cinnamon (stick)
 g egg
@@ -114,7 +115,6 @@ g peanuts
 g pearl onion
 g pineapple
 g powder sugar
-g sour cherries
 g strawberry
 g sugar
 g ice cream (vanilla)
@@ -129,12 +129,10 @@ m cola
 m ginger ale
 m grape juice
 m grapefruit juice
-m green olive juice
+m olive juice
 m hot chocolate
-m lemon juice
 m lemon lime soda
 m lemonade
-m lime juice
 m milk
 m orange juice
 m pineapple juice

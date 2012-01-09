@@ -31,6 +31,11 @@ nicemap = {
     "citron vodka": "vodka (citrus)",
     "citrus vodka": "vodka (citrus)",
     "currant vodka": "vodka (currant)",
+    "maraschino cherry juice": "cherry (maraschino) juice",
+    "currant vodka": "vodka (currant)",
+    "lemon juice": "lemon",
+    "lime juice": "lime",
+    "green olive juice": "olive juice",
     "mandarin vodka": "vodka (mandarin)",
     "vodka 100 proof": "vodka",
     "tequila premium": "tequila (premium)",
@@ -173,6 +178,7 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                 line = re.sub(r"(?i)\[genericingredient ([^]]+)] Hiram Walker Blackberry Liqueur", r"\1", line)
                 line = re.sub(r"(?i)\[genericingredient ([^]]+)] Hiram Walker cr de banana", r"\1", line)
                 brands = ("Glenlivet", "Goldschlager", "Harveys", "Jack Daniels", "Jameson", "Jim Beam", "Jose Cuervo", "Kahlua", "Malibu", "Martell", "Sauza Anejo", "Hiram Walker", "Ocean Spray", "Beefeater", "Absolut", "Don Pedro", "Baileys", "MUMM")
+                line = re.sub(r"(?i)\[genericingredient Pernod\] Pernod", r"absinthe", line)
                 line = re.sub(r"(?i)\[genericingredient ([^]]+)] (?:" + "|".join(re.escape(b) for b in brands) + r") \1", r"\1", line)
 
                 line = re.sub(r"(?i)\b(c)reme de ", r"\1rème de ", line)
@@ -252,7 +258,7 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                         add_ingredient("cinnamon (stick)")
                     elif line == "Garnish: Slice Green Apple":
                         prepare_instructions.append(line.replace(":", " with").lower())
-                        add_ingredient("apple (green)")
+                        add_ingredient("apple")
                     elif line == "Garnish: Cinnamon":
                         prepare_instructions.append(line.replace(":", " with").lower())
                         add_ingredient("cinnamon (ground)")
@@ -279,7 +285,7 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                         add_ingredient("strawberry")
                     elif line == "Garnish: Cherry":
                         prepare_instructions.append(line.replace(":", " with").lower())
-                        add_ingredient("cherry")
+                        add_ingredient("cherries (maraschino)")
                     elif line == "Garnish: Lemon Wheel":
                         prepare_instructions.append(line.replace(":", " with").lower())
                         add_ingredient("lemon")
@@ -501,8 +507,8 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                     elif line == "Splash Water":
                         prepare_instructions.append(line.lower())
                     elif line.startswith("Splash "):
-                        prepare_instructions.append(line.lower())
                         add_ingredient(nicemap.get(line[7:].lower(), line[7:].lower()))
+                        prepare_instructions.append(line.lower())
                     else:
                         raise ValueError(drink_number, line)
                     continue
@@ -513,7 +519,7 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
 
                 if line == "3 Sour Cherries":
                     prepare_instructions.append("add 3 sour cherries")
-                    add_ingredient("sour cherries")
+                    add_ingredient("cherries (sour)")
                     continue
 
                 if line == "3 Mint Leaves":
@@ -612,6 +618,8 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
         recipe_book.append(description)
 
 
+
+
 sorted_ingredients = list(k for v, k in reversed(sorted((v, k) for k, v in ingredient_frequency.items())))
 
 white_russian = [d for d in recipe_book if d["name"] == "White Russian"][0]
@@ -625,7 +633,7 @@ for d in recipe_book:
     assert "float" not in d["ingredients"], d
 
 with open("drinks.json.gz.fakeheader", "wb") as f:
-    struct = [3, datetime.utcnow().strftime("%s"), canonical_ingredients, recipe_book, sorted_ingredients[:17]]
+    struct = [3, datetime.utcnow().strftime("%s"), canonical_ingredients, sorted(recipe_book, key=lambda x: x["name"].lower()), sorted_ingredients[:17]]
 
     f.write(b"\x78\x9c\xec\xbdY\xcf\xf8\0\0\0CM\0\1\5\7cinnamon+(ground)rum+(dark)sambu\x10")
     f.write(b"$!@wef3\xf4(8wF34hALwef3\xf4\xca\x9a")
@@ -641,3 +649,7 @@ with open("drinks.json.gz.fakeheader", "wb") as f:
     z = gzip.compress(z.encode("latin1"), 9)
     f.write(z)
 
+
+with open("drinks.json", "wb") as f:
+    z = json.dumps(struct, indent=1)
+    f.write(z.encode("utf-8"))
