@@ -628,6 +628,13 @@ assert "cream" in white_russian["ingredients"]
 assert "coffee liqueur" in white_russian["ingredients"]
 assert "vodka" in white_russian["ingredients"]
 
+three_fifty_seven_magnum = [d for d in recipe_book if d["name"] == "357 Magnum"][0]
+assert "[" not in three_fifty_seven_magnum["ingredients"]
+
+forty_four_dee = [d for d in recipe_book if d["name"] == "44D"][0]
+assert len(forty_four_dee["ingredients"]) == 4
+assert len(forty_four_dee["prepare_instructions"]) == 5
+
 for d in recipe_book:
     assert "top" not in d["ingredients"], d
     assert "float" not in d["ingredients"], d
