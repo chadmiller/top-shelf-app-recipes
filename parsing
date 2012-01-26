@@ -607,6 +607,12 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
         except MakesNoSense as ex:
             print(repr(filename), ex)
             continue
+        except NonCanonicalIngredient as ex:
+            print(filename)
+            raise
+        except ValueError as ex:
+            print(filename)
+            raise
 
 
         description["name"] = filename
