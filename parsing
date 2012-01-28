@@ -80,7 +80,7 @@ class MakesNoSense(Exception): pass
 
 
 def add_ingredient(ingred):
-    if ingred not in canonical_ingredients:
+    if ingred not in canonical_ingredients and not ingred.startswith("some "):
         raise NonCanonicalIngredient(ingred)
     ingredients.add(ingred)
 
@@ -224,7 +224,7 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                     continue
 
 
-                if line.startswith(("3/4 Fill ", "2/3 Fill ", "1/3 Fill ", "1/2 Fill ", "Fill ", "Shake ", "Blend ", "Stir", "Splash ", "Garnish: ", "Top: ", "Float: ", "Gently Stir", "Mash", "Layer ", "In Mixing Glass With Ice Add:",)):
+                if line.startswith(("3/4 Fill ", "2/3 Fill ", "1/3 Fill ", "1/2 Fill ", "Fill ", "Shake ", "Blend ", "Stir", "Splash ", "Garnish: ", "Top: ", "Float: ", "Gently Stir", "Mash", "Layer ", "In Mixing Glass With Ice Add:", "Swirl", "Muddle")):
                     if state is not None and state_popper is not None:
                         prepare_instructions.append(state_popper)
                     #state = 
@@ -286,6 +286,9 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                     elif line == "Garnish: Cherry":
                         prepare_instructions.append(line.replace(":", " with").lower())
                         add_ingredient("cherries (maraschino)")
+                    elif line == "Garnish: Orange Wheel":
+                        prepare_instructions.append(line.replace(":", " with").lower())
+                        add_ingredient("orange")
                     elif line == "Garnish: Lemon Wheel":
                         prepare_instructions.append(line.replace(":", " with").lower())
                         add_ingredient("lemon")
@@ -346,7 +349,9 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                             #prepare_instructions.append("top with " + portion + " " + ingredient.lower())
                         else:
                             m = re.match(r"[Tt]op:? ([^0-9].*)", line)
-                            if m and m.group(1).lower() != "top":
+                            if line.endswith(" Ice"):
+                                pass
+                            elif m and m.group(1).lower() != "top":
                                 add_ingredient(nicemap.get(m.group(1).lower(), m.group(1).lower()))
                                 #prepare_instructions.append("top with " + m.group(1).lower())
                             else:
@@ -357,6 +362,8 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                     elif line == "Top: [genericingredient Sambuca] Hiram Walker Sambuca":
                         prepare_instructions.append("top with sambuca")
                         add_ingredient("sambuca")
+                    elif line == "Top: Crushed Ice":
+                        prepare_instructions.append("top with crushed ice")
                     elif line == "Top: Splash Champagne":
                         prepare_instructions.append("top with splash champagne")
                         add_ingredient("champagne")
@@ -429,6 +436,8 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                     elif line == "Fill Apple Juice":
                         prepare_instructions.append("fill with apple juice")
                         add_ingredient("apple juice")
+                    elif line == "Fill Ice":
+                        prepare_instructions.append("fill with ice")
                     elif line == "Fill White Wine":
                         prepare_instructions.append("fill with white wine")
                         add_ingredient("wine (white)")
@@ -474,6 +483,9 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                         add_ingredient("coffee")
                     elif line == "Fill with Ice":
                         prepare_instructions.append("fill with ice")
+                    elif line == "Swirl":
+                        if state_popper is not None: prepare_instructions.append(state_popper); state_popper = None
+                        prepare_instructions.append(line.lower())
                     elif line == "Shake and Strain":
                         if state_popper is not None: prepare_instructions.append(state_popper); state_popper = None
                         prepare_instructions.append(line.lower())
@@ -481,6 +493,9 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                         if state_popper is not None: prepare_instructions.append(state_popper); state_popper = None
                         prepare_instructions.append(line.lower())
                     elif line == "Gently Stir":
+                        if state_popper is not None: prepare_instructions.append(state_popper); state_popper = None
+                        prepare_instructions.append(line.lower())
+                    elif line == "Muddle":
                         if state_popper is not None: prepare_instructions.append(state_popper); state_popper = None
                         prepare_instructions.append(line.lower())
                     elif line == "Stir":
@@ -598,6 +613,7 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                     raise MakesNoSense(line)
 
             for ingredient in ingredients:
+                if ingredient == "some spirit": continue
                 n = ingredient_frequency.get(ingredient, 0)
                 n += 1
                 ingredient_frequency[ingredient] = n
@@ -619,11 +635,9 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
         description["prepare_instructions"] = [fraction_pretify(pi) for pi in prepare_instructions]
         if consume_instructions:
             description["consume_instructions"] = consume_instructions
-        description["ingredients"] = list(ingredients - set(["ice", "water", "hot water", "float", "top"]))
+        description["ingredients"] = list(ingredients)
         description["glasses"] = list(glasses)
         recipe_book.append(description)
-
-
 
 
 sorted_ingredients = list(k for v, k in reversed(sorted((v, k) for k, v in ingredient_frequency.items())))
@@ -644,9 +658,10 @@ assert len(forty_four_dee["prepare_instructions"]) == 5
 for d in recipe_book:
     assert "top" not in d["ingredients"], d
     assert "float" not in d["ingredients"], d
+    assert "hot water" not in d["ingredients"], d
 
 with open("drinks.json.gz.fakeheader", "wb") as f:
-    struct = [3, datetime.utcnow().strftime("%s"), canonical_ingredients, sorted(recipe_book, key=lambda x: x["name"].lower()), sorted_ingredients[:17]]
+    struct = [4, datetime.utcnow().strftime("%s"), canonical_ingredients, sorted(recipe_book, key=lambda x: x["name"].lower()), sorted_ingredients[:17]]
 
     f.write(b"\x78\x9c\xec\xbdY\xcf\xf8\0\0\0CM\0\1\5\7cinnamon+(ground)rum+(dark)sambu\x10")
     f.write(b"$!@wef3\xf4(8wF34hALwef3\xf4\xca\x9a")
