@@ -186,7 +186,7 @@ for drink_number, filename in enumerate(os.listdir("recipes-clean")):
                 line = re.sub(r"(?i)\bsouthern comfort\b", "whiskey", line)
                 line = re.sub(r"(?i)\b(rum) (dark) jamacian\b", r"\1 (\2)", line)
                 line = re.sub(r"(?i)\b(rum) jamacian\b", r"\1", line)
-                line = re.sub(r"(?i)\b(tequilla) premium\b", r"\1 (\2)", line)
+                line = re.sub(r"(?i)\b(tequilla) premium\b", r"\1", line)
                 line = re.sub(r"(?i)\b(rum) (light)\b", r"\1", line)
                 line = re.sub(r"(?i)\b(rum) (premium)\b", r"\1", line)
                 line = re.sub(r"(?i)\b(spiced) (rum)\b", r"\2 (\1)", line)
@@ -660,24 +660,5 @@ for d in recipe_book:
     assert "float" not in d["ingredients"], d
     assert "hot water" not in d["ingredients"], d
 
-with open("drinks.json.gz.fakeheader", "wb") as f:
-    struct = [4, datetime.utcnow().strftime("%s"), canonical_ingredients, sorted(recipe_book, key=lambda x: x["name"].lower()), sorted_ingredients[:17]]
-
-    f.write(b"\x78\x9c\xec\xbdY\xcf\xf8\0\0\0CM\0\1\5\7cinnamon+(ground)rum+(dark)sambu\x10")
-    f.write(b"$!@wef3\xf4(8wF34hALwef3\xf4\xca\x9a")
-    f.write(b"$!@(8wF34hALwwef3\xf4ef3\xf4\xaa\x3a")
-    f.write(b"garnisheshalwef3\xf4\xaawef3\xf4\x77")
-    f.write(b"#creamlemonlwef3\xf4\xca\x9a")
-    f.write(b"#!@ginger+aleef3\xf2\xcaef3\xf4\x21")
-    f.write(b"cognaclimecolaf3\xf4\xcaef3\xf4\x22")
-    f.write(b"#celeryabsintye3\xf4\xcaef3\xf4\x23")
-    f.write(b"#!@amarettotonic\xf2\xcaef3\xf4\x24")
-    f.write(b" #!@(8tequilawef3\xf2\xcaef3\xf4\x25")
-    z = json.dumps(struct, indent=1)
-    z = gzip.compress(z.encode("latin1"), 9)
-    f.write(z)
-
-
-with open("drinks.json", "wb") as f:
-    z = json.dumps(struct, indent=1)
-    f.write(z.encode("utf-8"))
+with open("drinks.json", "w") as f:
+    json.dump(recipe_book, f, indent=1)
