@@ -662,3 +662,35 @@ for d in recipe_book:
 
 with open("drinks.json", "w") as f:
     json.dump(recipe_book, f, indent=1)
+
+with open("drinks.gostruct", "w") as f:
+    f.write("""\
+type Recipe struct {
+        Name                string
+        Glasses             []string
+        Ingredients         []string
+        PrepareInstructions []string
+        ConsumeInstructions []string
+}
+
+""")
+    f.write("recipeBook := []Recipe{\n")
+    for recipe in recipe_book:
+        f.write("  { ")
+        f.write('Name: "{}",'.format(recipe["name"]))
+        elements = list()
+        if "ingredients" in recipe:
+            elements.append('Ingredients: []string{' + ",".join('"{}"'.format(i) for i in recipe["ingredients"]) + '}')
+
+        if "glasses" in recipe:
+            elements.append('Glasses: []string{' + ",".join('"{}"'.format(i) for i in recipe["glasses"]) + '}')
+
+        if "prepare_instructions" in recipe:
+            elements.append('PrepareInstructions: []string{' + ",".join('"{}"'.format(i) for i in recipe["prepare_instructions"]) + '}')
+
+        if "consume_instructions" in recipe:
+            elements.append('ConsumeInstructions: []string{' + ",".join('"{}"'.format(i) for i in recipe["consume_instructions"]) + '}')
+
+        f.write(", ".join(elements))
+        f.write(" },\n")
+    f.write("}\n")
